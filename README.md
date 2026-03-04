@@ -135,20 +135,20 @@ flowchart TD
 ### 🔐 Authentication
 ![Login Page](assets/login.jpeg)
 
-<!-- ### 🌐 Scrape Interface
-![Scrape Page](assets/scrape.png)
+### 🌐 Scrape Interface
+![Scrape Page](assets/scrape.jpeg)
 
 ### 📊 Results & Metrics
-![Results Page](assets/results.png) -->
+![Results Page](assets/results.jpeg)
 
 ---
 
-## 🎥 Demo Video
+<!-- ## 🎥 Demo Video
 
 ▶ Watch Demo:  
 [Click here to view working demo](assets/demo.mp4)
 
----
+--- -->
 
 <!-- # 📊 Performance Modeling
 

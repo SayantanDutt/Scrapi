@@ -20,7 +20,7 @@ settings = get_settings()
 app = FastAPI(title=settings.APP_NAME, debug=settings.DEBUG)
 
 origins = [
-    "https://scrapi-two.vercel.app",
+    'https://scrapi-two.vercel.app',
 ]
 
 app.add_middleware(

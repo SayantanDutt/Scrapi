@@ -82,22 +82,22 @@ flowchart TD
 
 ### 1️⃣ Frontend Layer
 - Built using **React + Vite**
-- Handles:
+<!-- - Handles:
   - Registration & Login
   - Scrape requests
   - Results display
   - History view
-  - CSV download
+  - CSV download -->
 
 ### 2️⃣ Backend API Layer
 - Built with **FastAPI**
-- Handles:
+<!-- - Handles:
   - Authentication (JWT)
   - Scrape endpoint
   - Error handling
-  - Data validation
+  - Data validation -->
 
-### 3️⃣ Scraping Pipeline
+<!-- ### 3️⃣ Scraping Pipeline
 
 #### 🔹 Fetch Stage
 - HTTP request using `requests`
@@ -126,7 +126,7 @@ flowchart TD
 - MongoDB stores:
   - Registered users
   - Scraping history
-  - Performance metrics
+  - Performance metrics -->
 
 ---
 
@@ -142,6 +142,8 @@ flowchart TD
 ![Results Page](assets/results.jpeg)
 
 ---
+
+
 
 <!-- ## 🎥 Demo Video
 
@@ -181,7 +183,8 @@ M(n) = c3·n + c4·m -->
 
 ---
 
-# 📁 Project Structure
+
+<!-- # 📁 Project Structure -->
 
 <!-- ```
 automated-web-scraper/
@@ -281,6 +284,14 @@ Recommended production architecture:
 - BeautifulSoup  
 - lxml  
 - JWT Authentication  
+
+---
+
+This is just the initial stage of this project ,it is not the final or complete version of it, We will be enhancing it with course of time. 
+
+---
+If you like the idea , give it a star and keep watching this repo. **Thanks !**
+
 
 ---
 

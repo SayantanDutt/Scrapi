@@ -9,6 +9,11 @@
 
 ---
 
+Live at:
+[![Live Demo](https://img.shields.io/badge/Live-Demo-green?style=for-the-badge)](https://scrapi-two.vercel.app)
+
+---
+
 ## 📌 Overview
 
 **Automated Web Scraper** is a full-stack web application that implements a structured and measurable web scraping pipeline.
@@ -125,22 +130,42 @@ flowchart TD
 
 ---
 
-# 📊 Performance Modeling
+## 📷 Application Screenshots
 
-The scraper implements measurable computational modeling:
+### 🔐 Authentication
+![Login Page](assets/login.png)
 
-### Runtime Model
-T(n) = c1·n + c2·m
+### 🌐 Scrape Interface
+![Scrape Page](assets/scrape.png)
 
-### Memory Model
-M(n) = c3·n + c4·m
+### 📊 Results & Metrics
+![Results Page](assets/results.png)
 
-Where:
+---
+
+## 🎥 Demo Video
+
+▶ Watch Demo:  
+[Click here to view working demo](assets/demo.mp4)
+
+---
+
+<!-- # 📊 Performance Modeling
+
+The scraper implements measurable computational modeling: -->
+
+<!-- ### Runtime Model
+T(n) = c1·n + c2·m -->
+
+<!-- ### Memory Model
+M(n) = c3·n + c4·m -->
+
+<!-- Where:
 - n = total DOM nodes traversed  
 - m = extracted nodes  
 - Efficiency = m / n  
 
----
+--- -->
 
 # ✨ Features
 
@@ -158,7 +183,7 @@ Where:
 
 # 📁 Project Structure
 
-```
+<!-- ```
 automated-web-scraper/
 │
 ├── backend/
@@ -182,11 +207,11 @@ automated-web-scraper/
 │   └── package.json
 │
 └── README.md
-```
+``` -->
 
----
+<!-- --- -->
 
-# 🚀 Installation (Local Development)
+<!-- # 🚀 Installation (Local Development)
 
 ### Clone Repository
 
@@ -233,7 +258,7 @@ npm run dev
 Frontend runs at:
 http://localhost:3000
 
----
+--- -->
 
 # 🌍 Deployment Strategy
 
@@ -262,7 +287,7 @@ Recommended production architecture:
 # 👨‍💻 Author
 
 **Sayantan Dutta**  
-Full-Stack Developer  
+ 
 
 ---
 

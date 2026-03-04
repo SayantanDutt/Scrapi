@@ -21,8 +21,9 @@ app = FastAPI(title=settings.APP_NAME, debug=settings.DEBUG)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=True,
+    allow_origins=[
+        "https://scrapi-two.vercel.app",
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )

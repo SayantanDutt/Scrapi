@@ -133,13 +133,13 @@ flowchart TD
 ## 📷 Application Screenshots
 
 ### 🔐 Authentication
-![Login Page](assets/login.png)
+![Login Page](assets/login.jpeg)
 
-### 🌐 Scrape Interface
+<!-- ### 🌐 Scrape Interface
 ![Scrape Page](assets/scrape.png)
 
 ### 📊 Results & Metrics
-![Results Page](assets/results.png)
+![Results Page](assets/results.png) -->
 
 ---
 

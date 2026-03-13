@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Automated Web Scraper</title>
+    <script>
+      if (window.location.pathname === "/" || window.location.pathname === "/index.html") {
+        window.location.replace("/landing.html");
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

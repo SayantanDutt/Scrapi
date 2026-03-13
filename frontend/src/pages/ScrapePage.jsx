@@ -1,328 +1,589 @@
-import { useState } from "react";
-
+import { useState, useMemo } from "react";
 import axiosClient, { getApiErrorMessage } from "../api/axiosClient";
-import ErrorMessage from "../components/ErrorMessage";
-import LoadingSpinner from "../components/LoadingSpinner";
-import MetricCard from "../components/MetricCard";
+import { useToast } from "../context/ToastContext";
 
-const initialForm = {
-  url: "",
-  target_tag: "",
-  class_name: "",
-  use_selenium_fallback: false,
-};
-
-function parseFilename(contentDisposition, fallback) {
-  if (!contentDisposition) {
-    return fallback;
-  }
-
-  const match = contentDisposition.match(/filename="?([^\"]+)"?/i);
-  return match?.[1] || fallback;
+/* ─────────────────────────────────────────────────────────────────────────────
+   Download helper
+───────────────────────────────────────────────────────────────────────────── */
+function parseFilename(cd, fallback) {
+  if (!cd) return fallback;
+  const m = cd.match(/filename="?([^"]+)"?/i);
+  return m?.[1] || fallback;
 }
 
-function renderSimpleTable(rows, columnName) {
-  if (!rows?.length) {
-    return <p className="empty-text">No {columnName.toLowerCase()} extracted.</p>;
-  }
+async function triggerDownload(id, format) {
+  const ext = format === "json" ? "json" : "csv";
+  const response = await axiosClient.get(`/scrape/history/${id}/${ext}`, {
+    responseType: "blob",
+  });
+  const fallback = `scrapi_${id.slice(0, 8)}.${ext}`;
+  const filename = parseFilename(response.headers["content-disposition"], fallback);
+  const type = format === "json" ? "application/json" : "text/csv;charset=utf-8;";
+  const blob = new Blob([response.data], { type });
+  const url  = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url; link.download = filename;
+  document.body.appendChild(link); link.click(); link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Detection badge
+───────────────────────────────────────────────────────────────────────────── */
+const METHOD_META = {
+  pattern: { label: "Pattern Detection",  color: "badge-green",  icon: "◈" },
+  table:   { label: "HTML Table",         color: "badge-blue",   icon: "⊞" },
+  list:    { label: "List Items",         color: "badge-purple", icon: "☰" },
+  classic: { label: "Classic Extraction", color: "badge-gray",   icon: "◇" },
+};
+
+function DetectionBanner({ result }) {
+  const method = result.detection_method || "classic";
+  const meta   = METHOD_META[method] || METHOD_META.classic;
 
   return (
-    <div className="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>{columnName}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((item, index) => (
-            <tr key={`${columnName}-${index + 1}`}>
-              <td>{index + 1}</td>
-              <td>{item}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="detection-banner">
+      <div className="detection-banner-left">
+        <span className={`badge ${meta.color}`}>
+          {meta.icon} {meta.label}
+        </span>
+        {result.detected_pattern && (
+          <code className="pattern-code">{result.detected_pattern}</code>
+        )}
+      </div>
+      <div className="detection-banner-right">
+        <span className="detection-count">
+          <strong>{result.record_count}</strong> records extracted
+        </span>
+        {result.columns?.length > 0 && (
+          <span className="detection-cols">
+            {result.columns.length} {result.columns.length === 1 ? "column" : "columns"}
+          </span>
+        )}
+        {result.dynamic_content_detected && (
+          <span className="badge badge-orange">JS-rendered</span>
+        )}
+        {result.used_selenium && (
+          <span className="badge badge-green">Selenium</span>
+        )}
+      </div>
     </div>
   );
 }
 
-export default function ScrapePage() {
-  const [form, setForm] = useState(initialForm);
-  const [loading, setLoading] = useState(false);
-  const [downloading, setDownloading] = useState(false);
-  const [error, setError] = useState("");
-  const [result, setResult] = useState(null);
+/* ─────────────────────────────────────────────────────────────────────────────
+   Smart data table with pagination and column visibility
+───────────────────────────────────────────────────────────────────────────── */
+const PAGE_SIZE = 50;
 
-  const onInputChange = (event) => {
-    const { name, value, type, checked } = event.target;
-    setForm((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+function DataTable({ records, columns }) {
+  const [page, setPage]       = useState(1);
+  const [search, setSearch]   = useState("");
+  const [hiddenCols, setHiddenCols] = useState(new Set());
+
+  const visibleCols = columns.filter(c => !hiddenCols.has(c));
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return records;
+    const q = search.toLowerCase();
+    return records.filter(r =>
+      Object.values(r).some(v => String(v).toLowerCase().includes(q))
+    );
+  }, [records, search]);
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const pageData   = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const toggleCol = (col) => {
+    setHiddenCols(prev => {
+      const next = new Set(prev);
+      next.has(col) ? next.delete(col) : next.add(col);
+      return next;
+    });
   };
 
-  const onSubmit = async (event) => {
-    event.preventDefault();
-    setError("");
-    setLoading(true);
+  if (!records?.length) {
+    return (
+      <div className="empty-state">
+        <div className="empty-icon">📭</div>
+        <strong>No data extracted</strong>
+        <span>The page may be empty, blocked, or require JavaScript rendering.</span>
+      </div>
+    );
+  }
 
-    try {
-      const payload = {
-        url: form.url,
-        use_selenium_fallback: form.use_selenium_fallback,
-      };
-
-      if (form.target_tag.trim()) {
-        payload.target_tag = form.target_tag.trim();
-      }
-
-      if (form.class_name.trim()) {
-        payload.class_name = form.class_name.trim();
-      }
-
-      const response = await axiosClient.post("/scrape", payload);
-      setResult(response.data);
-    } catch (submitError) {
-      setError(getApiErrorMessage(submitError, "Scraping failed"));
-    } finally {
-      setLoading(false);
-    }
+  const isUrl = (val) => {
+    try { return new URL(String(val)).protocol.startsWith("http"); }
+    catch { return false; }
   };
 
-  const downloadCsv = async () => {
-    if (!result?.id) {
-      return;
-    }
-
-    setError("");
-    setDownloading(true);
-
-    try {
-      const response = await axiosClient.get(`/scrape/history/${result.id}/csv`, {
-        responseType: "blob",
-      });
-
-      const fallbackFilename = `scrape_${result.id}.csv`;
-      const filename = parseFilename(
-        response.headers["content-disposition"],
-        fallbackFilename,
-      );
-
-      const blob = new Blob([response.data], { type: "text/csv;charset=utf-8;" });
-      const blobUrl = window.URL.createObjectURL(blob);
-
-      const link = document.createElement("a");
-      link.href = blobUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-
-      window.URL.revokeObjectURL(blobUrl);
-    } catch (downloadError) {
-      setError(getApiErrorMessage(downloadError, "Could not download CSV"));
-    } finally {
-      setDownloading(false);
-    }
+  const isImage = (col, val) => {
+    return (col === "image" || col.includes("img")) &&
+      typeof val === "string" &&
+      /\.(jpg|jpeg|png|gif|webp|svg|avif)(\?|$)/i.test(val);
   };
-
-  const data = result?.data || {};
 
   return (
-    <section className="panel">
-      <h2>Scrape Page</h2>
-      <p>Run the pipeline: Fetching -&gt; Extraction -&gt; Execution.</p>
-
-      <form className="form-grid" onSubmit={onSubmit}>
-        <label>
-          URL
+    <div className="data-table-section">
+      {/* Toolbar */}
+      <div className="data-table-toolbar">
+        <div className="search-input-wrap" style={{ maxWidth: 280 }}>
+          <span className="search-icon">⌕</span>
           <input
-            name="url"
-            type="url"
-            value={form.url}
-            onChange={onInputChange}
-            placeholder="https://example.com"
-            required
+            type="text"
+            className="input"
+            placeholder="Filter rows…"
+            value={search}
+            onChange={e => { setSearch(e.target.value); setPage(1); }}
           />
-        </label>
-
-        <div className="grid-two">
-          <label>
-            Target Tag (optional)
-            <input
-              name="target_tag"
-              type="text"
-              value={form.target_tag}
-              onChange={onInputChange}
-              placeholder="div"
-            />
-          </label>
-
-          <label>
-            Class Name (optional)
-            <input
-              name="class_name"
-              type="text"
-              value={form.class_name}
-              onChange={onInputChange}
-              placeholder="card-title"
-            />
-          </label>
         </div>
-
-        <label className="checkbox-line">
-          <input
-            name="use_selenium_fallback"
-            type="checkbox"
-            checked={form.use_selenium_fallback}
-            onChange={onInputChange}
-          />
-          Use Selenium fallback for JavaScript-heavy pages
-        </label>
-
-        <ErrorMessage message={error} />
-
-        <button className="primary-button" type="submit" disabled={loading}>
-          {loading ? "Scraping..." : "Run Scrape"}
-        </button>
-
-        {loading ? <LoadingSpinner text="Fetching and extracting content" /> : null}
-      </form>
-
-      {result ? (
-        <div className="result-wrap">
-          <div className="result-header">
-            <h3>Execution Result</h3>
-            <button className="ghost-button" onClick={downloadCsv} disabled={downloading}>
-              {downloading ? "Preparing CSV..." : "Download CSV"}
+        <div className="col-toggles">
+          {columns.map(col => (
+            <button
+              key={col}
+              type="button"
+              className={`col-toggle-btn ${hiddenCols.has(col) ? "inactive" : "active"}`}
+              onClick={() => toggleCol(col)}
+              title={hiddenCols.has(col) ? `Show ${col}` : `Hide ${col}`}
+            >
+              {col}
             </button>
-          </div>
-
-          <div className="meta-grid">
-            <MetricCard label="Runtime (s)" value={result.metrics.runtime_seconds} />
-            <MetricCard label="Memory (MB)" value={result.metrics.memory_usage_mb} />
-            <MetricCard label="Traversed Nodes" value={result.metrics.traversed_nodes} />
-            <MetricCard label="Extracted Nodes" value={result.metrics.extracted_nodes} />
-            <MetricCard label="Efficiency (m/n)" value={result.metrics.efficiency_ratio} />
-          </div>
-
-          <p className="meta-text">
-            URL: {result.url} | Dynamic Content: {result.dynamic_content_detected ? "Yes" : "No"} |
-            Selenium Used: {result.used_selenium ? "Yes" : "No"}
-          </p>
-
-          <div className="output-grid">
-            <article className="feature-card">
-              <h4>Headings</h4>
-              {renderSimpleTable(data.headings, "Heading")}
-            </article>
-
-            <article className="feature-card">
-              <h4>Paragraphs</h4>
-              {renderSimpleTable(data.paragraphs, "Paragraph")}
-            </article>
-          </div>
-
-          <article className="feature-card">
-            <h4>Links</h4>
-            {data.links?.length ? (
-              <div className="table-scroll">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Text</th>
-                      <th>Href</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.links.map((link, index) => (
-                      <tr key={`link-${index + 1}`}>
-                        <td>{index + 1}</td>
-                        <td>{link.text}</td>
-                        <td>{link.href}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="empty-text">No links extracted.</p>
-            )}
-          </article>
-
-          <article className="feature-card">
-            <h4>Tables</h4>
-            {data.tables?.length ? (
-              data.tables.map((table, tableIndex) => (
-                <div className="table-block" key={`table-${tableIndex + 1}`}>
-                  <strong>Table {tableIndex + 1}</strong>
-                  {table.rows?.length ? (
-                    <div className="table-scroll">
-                      <table>
-                        <thead>
-                          <tr>
-                            {(table.headers?.length ? table.headers : ["Values"]).map(
-                              (header, idx) => (
-                                <th key={`header-${tableIndex + 1}-${idx}`}>{header}</th>
-                              ),
-                            )}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {table.rows.map((row, rowIndex) => (
-                            <tr key={`row-${tableIndex + 1}-${rowIndex}`}>
-                              {row.map((cell, cellIndex) => (
-                                <td key={`cell-${tableIndex + 1}-${rowIndex}-${cellIndex}`}>
-                                  {cell}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="empty-text">No tabular rows extracted.</p>
-                  )}
-                </div>
-              ))
-            ) : (
-              <p className="empty-text">No tables extracted.</p>
-            )}
-          </article>
-
-          <article className="feature-card">
-            <h4>Targeted Extraction</h4>
-            {data.targeted?.length ? (
-              <div className="table-scroll">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Text</th>
-                      <th>Attributes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.targeted.map((item, index) => (
-                      <tr key={`targeted-${index + 1}`}>
-                        <td>{index + 1}</td>
-                        <td>{item.text}</td>
-                        <td>{JSON.stringify(item.attributes)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="empty-text">No targeted nodes extracted.</p>
-            )}
-          </article>
+          ))}
         </div>
-      ) : null}
-    </section>
+      </div>
+
+      {/* Table */}
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style={{ width: 44, textAlign: "center" }}>#</th>
+              {visibleCols.map(col => (
+                <th key={col}>{col.replace(/_/g, " ")}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {pageData.map((row, ri) => (
+              <tr key={ri}>
+                <td className="td-mono" style={{ textAlign: "center", color: "var(--text-muted)" }}>
+                  {(page - 1) * PAGE_SIZE + ri + 1}
+                </td>
+                {visibleCols.map(col => {
+                  const val = row[col] ?? "";
+                  return (
+                    <td key={col}>
+                      {isImage(col, val) ? (
+                        <img
+                          src={val}
+                          alt={row.title || col}
+                          className="table-thumb"
+                          loading="lazy"
+                          onError={e => { e.target.style.display = "none"; }}
+                        />
+                      ) : isUrl(val) ? (
+                        <a
+                          href={val}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="td-url"
+                          title={val}
+                        >
+                          {val.length > 60 ? val.slice(0, 57) + "…" : val}
+                        </a>
+                      ) : (
+                        <span className={col === "price" ? "price-cell" : undefined}>
+                          {String(val)}
+                        </span>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="pagination">
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+          >
+            ← Prev
+          </button>
+          <span className="pagination-info">
+            Page {page} of {totalPages}
+            <span className="text-muted"> ({filtered.length} rows)</span>
+          </span>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+          >
+            Next →
+          </button>
+        </div>
+      )}
+
+      {filtered.length === 0 && search && (
+        <p className="text-muted text-sm text-center" style={{ padding: "1rem" }}>
+          No rows match "{search}"
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Main page
+───────────────────────────────────────────────────────────────────────────── */
+export default function ScrapePage() {
+  const { toastSuccess, toastError, toastInfo } = useToast();
+
+  const [url, setUrl]           = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
+  const [result, setResult]     = useState(null);
+  const [downloading, setDownloading] = useState("");
+  const [phase, setPhase]       = useState("");
+
+  const PHASES = [
+    "Fetching page…",
+    "Analysing DOM structure…",
+    "Detecting repeating patterns…",
+    "Extracting structured data…",
+    "Cleaning and normalising…",
+  ];
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    if (!url.trim()) return;
+    setError(""); setResult(null); setLoading(true); setPhase(PHASES[0]);
+
+    // Cycle phase labels for perceived progress
+    let phaseIdx = 0;
+    const phaseTimer = setInterval(() => {
+      phaseIdx = Math.min(phaseIdx + 1, PHASES.length - 1);
+      setPhase(PHASES[phaseIdx]);
+    }, 1800);
+
+    try {
+      toastInfo("Running smart scrape pipeline…");
+      const res = await axiosClient.post("/scrape", { url: url.trim(), use_selenium_fallback: true });
+      setResult(res.data);
+      toastSuccess(`Done — ${res.data.record_count} records extracted via ${res.data.detection_method}.`);
+    } catch (err) {
+      const msg = getApiErrorMessage(err, "Scraping failed");
+      setError(msg);
+      toastError(msg);
+    } finally {
+      clearInterval(phaseTimer);
+      setLoading(false);
+      setPhase("");
+    }
+  };
+
+  const download = async (format) => {
+    if (!result?.id) return;
+    setDownloading(format);
+    try {
+      await triggerDownload(result.id, format);
+      toastSuccess(`${format.toUpperCase()} downloaded!`);
+    } catch (err) {
+      toastError(getApiErrorMessage(err, "Download failed"));
+    } finally {
+      setDownloading("");
+    }
+  };
+
+  const metrics = result?.metrics;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+
+      {/* Page header */}
+      <div className="page-header">
+        <div>
+          <h2>New Scrape</h2>
+          <p>Enter any URL — Scrapi automatically detects structure and extracts a clean dataset.</p>
+        </div>
+      </div>
+
+      {/* Form */}
+      <div className="card card-padded">
+        <form className="form-stack" onSubmit={onSubmit} noValidate>
+
+          <div className="field">
+            <label className="field-label" htmlFor="url">Target URL</label>
+            <div className="url-input-row">
+              <input
+                id="url"
+                type="url"
+                className="input"
+                value={url}
+                onChange={e => { setUrl(e.target.value); if (error) setError(""); }}
+                placeholder="https://example.com/products"
+                required
+                autoComplete="url"
+              />
+              <button
+                type="submit"
+                className="btn btn-primary btn-scrape"
+                disabled={loading || !url.trim()}
+              >
+                {loading
+                  ? <><span className="spinner spinner-sm" /> Scraping…</>
+                  : "▶ Scrape"}
+              </button>
+            </div>
+          </div>
+
+          {error && (
+            <div className="error-box" role="alert">
+              <span>⚠</span>
+              <span>{error}</span>
+            </div>
+          )}
+
+          {loading && (
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.78rem", color: "var(--text-3)", marginBottom: "0.3rem" }}>
+                <span>{phase}</span>
+              </div>
+              <div className="progress-bar-wrap progress-indeterminate">
+                <div className="progress-bar-fill" />
+              </div>
+            </div>
+          )}
+        </form>
+
+        {/* Pipeline info */}
+        <div className="pipeline-steps">
+          {[
+            { icon: "⬇", label: "Fetch", desc: "HTTP + retry" },
+            { icon: "⚙", label: "Render", desc: "JS detection" },
+            { icon: "◈", label: "Detect", desc: "DOM patterns" },
+            { icon: "⊞", label: "Extract", desc: "Smart fields" },
+            { icon: "✦", label: "Clean", desc: "Normalize" },
+          ].map((s, i) => (
+            <div key={i} className="pipeline-step">
+              <span className="pipeline-step-icon">{s.icon}</span>
+              <span className="pipeline-step-label">{s.label}</span>
+              <span className="pipeline-step-desc">{s.desc}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Results */}
+      {result && (
+        <div className="result-section">
+
+          {/* Header */}
+          <div className="result-header">
+            <h3>Extraction Result</h3>
+            <div className="download-group">
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => download("csv")}
+                disabled={!!downloading || !result.record_count}
+              >
+                {downloading === "csv"
+                  ? <><span className="spinner spinner-sm" /> Preparing…</>
+                  : "⬇ Download CSV"}
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => download("json")}
+                disabled={!!downloading || !result.record_count}
+              >
+                {downloading === "json"
+                  ? <><span className="spinner spinner-sm" /> Preparing…</>
+                  : "⬇ Download JSON"}
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => { setResult(null); setUrl(""); }}
+              >
+                ✕ Clear
+              </button>
+            </div>
+          </div>
+
+          {/* Detection banner */}
+          <DetectionBanner result={result} />
+
+          {/* Metrics row */}
+          <div className="stats-grid">
+            <MetricCard label="Runtime"    value={`${metrics.runtime_seconds}s`} />
+            <MetricCard label="Memory"     value={`${metrics.memory_usage_mb} MB`} />
+            <MetricCard label="DOM Nodes"  value={metrics.traversed_nodes} />
+            <MetricCard label="Records"    value={result.record_count} highlight />
+            <MetricCard
+              label="Efficiency"
+              value={(metrics.efficiency_ratio * 100).toFixed(1) + "%"}
+            />
+          </div>
+
+          {/* Meta pills */}
+          <div className="scrape-meta">
+            {(() => {
+              try { return <span className="meta-pill">🌐 {new URL(result.url).hostname}</span>; }
+              catch { return <span className="meta-pill">🌐 {result.url}</span>; }
+            })()}
+            {result.columns?.map(col => (
+              <span key={col} className="meta-pill col-pill">{col.replace(/_/g, " ")}</span>
+            ))}
+          </div>
+
+          {/* Primary data table */}
+          <div className="card card-padded">
+            <div className="table-section-header">
+              <h4>Extracted Dataset</h4>
+              <span className="text-muted text-sm">
+                {result.record_count} rows · {result.columns?.length ?? 0} columns
+              </span>
+            </div>
+            <DataTable records={result.records} columns={result.columns ?? []} />
+          </div>
+
+          {/* Classic fallback accordion */}
+          {(result.headings?.length > 0 || result.links?.length > 0 || result.paragraphs?.length > 0) && (
+            <ClassicDataAccordion result={result} />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Classic data accordion (headings / links / paragraphs)
+───────────────────────────────────────────────────────────────────────────── */
+function ClassicDataAccordion({ result }) {
+  const [open, setOpen] = useState(false);
+
+  const sections = [
+    result.headings?.length   && { key: "h", label: `Headings (${result.headings.length})` },
+    result.links?.length      && { key: "l", label: `Links (${result.links.length})` },
+    result.paragraphs?.length && { key: "p", label: `Paragraphs (${result.paragraphs.length})` },
+  ].filter(Boolean);
+
+  const [activeSection, setActiveSection] = useState(sections[0]?.key ?? "h");
+
+  if (!sections.length) return null;
+
+  return (
+    <div className="card classic-accordion">
+      <button
+        type="button"
+        className="accordion-toggle"
+        onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+      >
+        <span>Additional extracted data</span>
+        <span>{open ? "▲" : "▼"}</span>
+      </button>
+
+      {open && (
+        <div className="accordion-body">
+          <div className="tab-list" role="tablist" style={{ padding: "0 1rem" }}>
+            {sections.map(s => (
+              <button
+                key={s.key}
+                type="button"
+                className={`tab-btn${activeSection === s.key ? " active" : ""}`}
+                onClick={() => setActiveSection(s.key)}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ padding: "0 1rem 1rem" }}>
+            {activeSection === "h" && result.headings?.length > 0 && (
+              <div className="table-wrap">
+                <table>
+                  <thead><tr><th>#</th><th>Level</th><th>Text</th></tr></thead>
+                  <tbody>
+                    {result.headings.map((h, i) => (
+                      <tr key={i}>
+                        <td className="td-mono">{i + 1}</td>
+                        <td><span className="badge badge-green">{h.level?.toUpperCase()}</span></td>
+                        <td>{h.text}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {activeSection === "l" && result.links?.length > 0 && (
+              <div className="table-wrap">
+                <table>
+                  <thead><tr><th>#</th><th>Text</th><th>URL</th><th>Type</th></tr></thead>
+                  <tbody>
+                    {result.links.map((l, i) => (
+                      <tr key={i}>
+                        <td className="td-mono">{i + 1}</td>
+                        <td>{l.text}</td>
+                        <td>
+                          <a href={l.href} target="_blank" rel="noreferrer noopener"
+                            className="td-url" title={l.href}>
+                            {l.href?.length > 60 ? l.href.slice(0, 57) + "…" : l.href}
+                          </a>
+                        </td>
+                        <td>
+                          {l.is_external
+                            ? <span className="badge badge-orange">External</span>
+                            : <span className="badge badge-gray">Internal</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {activeSection === "p" && result.paragraphs?.length > 0 && (
+              <div className="table-wrap">
+                <table>
+                  <thead><tr><th>#</th><th>Content</th></tr></thead>
+                  <tbody>
+                    {result.paragraphs.map((p, i) => (
+                      <tr key={i}>
+                        <td className="td-mono">{i + 1}</td>
+                        <td>{p.text}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Helpers
+───────────────────────────────────────────────────────────────────────────── */
+function MetricCard({ label, value, highlight }) {
+  return (
+    <div className={`stat-card${highlight ? " stat-card-highlight" : ""}`}>
+      <div className="stat-label">{label}</div>
+      <div className="stat-value" style={{ fontSize: "1.15rem" }}>{value}</div>
+    </div>
   );
 }

@@ -19,15 +19,20 @@ settings = get_settings()
 
 app = FastAPI(title=settings.APP_NAME, debug=settings.DEBUG)
 
-origins = [
+_CORS_ORIGINS = [
     "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:4173",
     "https://scrapi-two.vercel.app",
+    "http://172.16.0.2:3000",
+    "http://192.168.189.1:3000",
+    "http://192.168.137.206:3000",
+    *settings.CORS_ORIGINS,
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_origins=list(dict.fromkeys(_CORS_ORIGINS)),  # deduplicated
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -45,7 +50,7 @@ async def on_startup() -> None:
     connected = await connect_to_mongo()
     if connected and await verify_mongo_connection():
         logger.info(
-            "MongoDB connectivity verified successfully at %s (db: %s).",
+            "MongoDB connectivity verified at %s (db: %s).",
             settings.MONGO_URI,
             settings.MONGO_DB_NAME,
         )
@@ -54,7 +59,7 @@ async def on_startup() -> None:
     error_detail = get_last_mongo_error() or "No additional error details available."
     logger.error(
         "MongoDB connectivity check failed at startup for %s (db: %s). "
-        "API will continue running in degraded mode. Error: %s",
+        "API running in degraded mode. Error: %s",
         settings.MONGO_URI,
         settings.MONGO_DB_NAME,
         error_detail,
@@ -64,6 +69,7 @@ async def on_startup() -> None:
 @app.on_event("shutdown")
 async def on_shutdown() -> None:
     await close_mongo_connection()
+
 
 register_exception_handlers(app)
 
@@ -75,6 +81,7 @@ app.include_router(scrape.router, prefix=settings.API_V1_PREFIX)
 @app.get("/")
 async def root():
     return {
-        "message": "Automated Web Scraper API is running.",
+        "message": "Scrapi — Web Scraping API is running.",
         "docs": "/docs",
+        "version": "2.0.0",
     }

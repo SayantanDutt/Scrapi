@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title >Scrapi</title>
+
+    <!-- All styles come from the shared CSS (same file the React app uses) -->
+    <link rel="stylesheet" href="/src/index.css" />
+
+    <!-- Auth redirect: if logged in, go straight to dashboard -->
+    <script>
+      (function () {
+        const tokenKey = "scraper_auth_token";
+        const cookieToken = document.cookie
+          .split(";")
+          .map((item) => item.trim())
+          .find((item) => item.startsWith(tokenKey + "="));
+        const hasToken =
+          Boolean(sessionStorage.getItem(tokenKey)) ||
+          Boolean(localStorage.getItem(tokenKey)) ||
+          Boolean(cookieToken);
+        if (hasToken) {
+          window.location.replace("/dashboard");
+        }
+      })();
+    </script>
+
+    <!-- Restore saved theme before first paint to avoid flash -->
+    <script>
+      (function () {
+        var saved = localStorage.getItem("scrapi_theme") || "light";
+        document.documentElement.setAttribute("data-theme", saved);
+      })();
+    </script>
+  </head>
+  <body>
+    <div class="app-shell">
+
+      <!-- ── Topbar (mirrors Layout.jsx unauthenticated state) ── -->
+      <header class="topbar">
+        <a href="/" class="brand-logo">
+          <div class="logo-icon" aria-hidden="true">S</div>
+          <div>
+            <div class="brand-name">Scrapi</div>
+            <div class="brand-tag">Web Scraping Platform</div>
+          </div>
+        </a>
+
+        <div class="nav-right">
+          <button
+            class="theme-toggle"
+            id="theme-btn"
+            aria-label="Toggle theme"
+            title="Toggle dark / light mode"
+          >🌙</button>
+          <a href="/login" class="nav-link">Sign in</a>
+          <a href="/register" class="btn btn-sm btn-primary">Get started</a>
+        </div>
+      </header>
+
+      <!-- ── Main (mirrors LandingPage.jsx) ── -->
+      <main>
+        <div class="landing-page">
+
+          <!-- Hero -->
+          <section class="hero">
+            <div>
+              <div class="hero-badge">
+                <span>✦</span>
+                <span>Open-Source Web Scraping Platform</span>
+              </div>
+
+              <h1>
+                Extract the Web's Data —
+                <span class="gradient-text">Instantly &amp; Cleanly</span>
+              </h1>
+
+              <p>
+                Scrapi is a developer-grade scraping tool that fetches any webpage, extracts
+                structured content, and delivers clean, analysis-ready CSV and JSON exports
+                in seconds.
+              </p>
+
+              <div class="hero-cta">
+                <a href="/register" class="btn btn-primary btn-lg">Start scraping free →</a>
+                <a href="/login"    class="btn btn-secondary btn-lg">Sign in</a>
+              </div>
+
+              <div class="hero-stats">
+                <div class="hero-stat">
+                  <div class="value">3-stage</div>
+                  <div class="label">Pipeline</div>
+                </div>
+                <div class="hero-stat">
+                  <div class="value">5+</div>
+                  <div class="label">Content Types</div>
+                </div>
+                <div class="hero-stat">
+                  <div class="value">CSV+JSON</div>
+                  <div class="label">Export Formats</div>
+                </div>
+                <div class="hero-stat">
+                  <div class="value">Retry</div>
+                  <div class="label">Auto-Fallback</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Features -->
+          <section class="features-section">
+            <div class="reveal">
+              <span class="section-label">Features</span>
+              <h2 class="section-title">Everything you need to scrape the web</h2>
+              <p class="section-subtitle">
+                From raw HTML to structured datasets — Scrapi handles the entire pipeline
+                so you can focus on what the data means.
+              </p>
+            </div>
+
+            <div class="features-grid">
+              <div class="feature-item reveal" style="transition-delay:0s">
+                <div class="fi-icon">⚡</div>
+                <h3>Multi-Strategy Pipeline</h3>
+                <p>Fetch → Detect → Extract → Clean. Automatically falls back to Selenium for JavaScript-rendered pages, with retry logic and timeout handling.</p>
+              </div>
+              <div class="feature-item reveal" style="transition-delay:0.08s">
+                <div class="fi-icon">◈</div>
+                <h3>Automatic Pattern Detection</h3>
+                <p>Detects repeating DOM structures like product cards, article blocks, and table rows — no CSS selectors or manual config required.</p>
+              </div>
+              <div class="feature-item reveal" style="transition-delay:0.16s">
+                <div class="fi-icon">📊</div>
+                <h3>Unified Table Preview</h3>
+                <p>Results shown in a clean, searchable, paginated table before download. Toggle columns, filter rows, and see image thumbnails inline.</p>
+              </div>
+              <div class="feature-item reveal" style="transition-delay:0.24s">
+                <div class="fi-icon">📦</div>
+                <h3>JSON &amp; CSV Export</h3>
+                <p>Download structured data as clean CSV or JSON. Normalized field names, deduplicated rows, and consistent schema across all exports.</p>
+              </div>
+              <div class="feature-item reveal" style="transition-delay:0.32s">
+                <div class="fi-icon">🧹</div>
+                <h3>Smart Data Cleaning</h3>
+                <p>Whitespace normalization, duplicate removal, empty field filtering, and snake_case field naming — analysis-ready out of the box.</p>
+              </div>
+              <div class="feature-item reveal" style="transition-delay:0.40s">
+                <div class="fi-icon">🕐</div>
+                <h3>Full Job History</h3>
+                <p>Every scrape is persisted to your account. Review detection method, re-download exports, and track your extraction history anytime.</p>
+              </div>
+            </div>
+          </section>
+
+          <!-- How it works -->
+          <section class="how-section">
+            <div class="how-inner">
+              <div class="reveal">
+                <span class="section-label">How it works</span>
+                <h2 class="section-title">From URL to dataset in four steps</h2>
+                <p class="section-subtitle">
+                  No config files, no selectors required for basic extraction.
+                  Just a URL and a click.
+                </p>
+              </div>
+
+              <div class="steps-grid">
+                <div class="step reveal" style="transition-delay:0s">
+                  <div class="step-number">1</div>
+                  <h3>Sign Up Free</h3>
+                  <p>Create an account in seconds. No credit card required.</p>
+                </div>
+                <div class="step reveal" style="transition-delay:0.1s">
+                  <div class="step-number">2</div>
+                  <h3>Enter a URL</h3>
+                  <p>Paste any webpage URL — Scrapi handles everything automatically, no configuration needed.</p>
+                </div>
+                <div class="step reveal" style="transition-delay:0.2s">
+                  <div class="step-number">3</div>
+                  <h3>Run the Scrape</h3>
+                  <p>The pipeline fetches, extracts, cleans, and structures the data automatically.</p>
+                </div>
+                <div class="step reveal" style="transition-delay:0.3s">
+                  <div class="step-number">4</div>
+                  <h3>Download &amp; Analyse</h3>
+                  <p>Preview the results, then download clean CSV or JSON — ready for analysis.</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- CTA -->
+          <section class="cta-section">
+            <div class="cta-inner reveal">
+              <h2>
+                Ready to start <span class="gradient-text">scraping smarter?</span>
+              </h2>
+              <p>
+                Create your free account and run your first scrape in under a minute.
+                No setup, no configuration.
+              </p>
+              <div class="hero-cta">
+                <a href="/register" class="btn btn-primary btn-lg">Create free account →</a>
+              </div>
+            </div>
+          </section>
+
+          <footer class="site-footer">
+            <p>Scrapi — Web Scraping Platform · Built with FastAPI + React + MongoDB</p>
+          </footer>
+
+        </div><!-- /.landing-page -->
+      </main>
+    </div><!-- /.app-shell -->
+
+    <!-- Theme toggle logic -->
+    <script>
+      (function () {
+        var btn = document.getElementById("theme-btn");
+        function applyTheme(t) {
+          document.documentElement.setAttribute("data-theme", t);
+          localStorage.setItem("scrapi_theme", t);
+          btn.textContent = t === "light" ? "🌙" : "☀️";
+          btn.title = "Switch to " + (t === "light" ? "dark" : "light") + " mode";
+        }
+        // Sync icon with current theme on load
+        applyTheme(localStorage.getItem("scrapi_theme") || "light");
+        btn.addEventListener("click", function () {
+          var current = document.documentElement.getAttribute("data-theme") || "light";
+          applyTheme(current === "light" ? "dark" : "light");
+        });
+      })();
+    </script>
+
+    <!-- Scroll-reveal: mirrors the IntersectionObserver in LandingPage.jsx -->
+    <script>
+      (function () {
+        var observer = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (entry) {
+              if (entry.isIntersecting) {
+                entry.target.classList.add("visible");
+              }
+            });
+          },
+          { threshold: 0.12, rootMargin: "0px 0px -48px 0px" }
+        );
+        document.querySelectorAll(".reveal").forEach(function (el) {
+          observer.observe(el);
+        });
+      })();
+    </script>
+  </body>
+</html>

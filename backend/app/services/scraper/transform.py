@@ -1,34 +1,50 @@
+"""
+transform.py — Convert scrape results to clean CSV and JSON export formats.
+"""
+from __future__ import annotations
+
 import csv
 import io
 import json
+from typing import Any, Dict, List
 
 
-def to_csv(data: dict) -> str:
+def records_to_csv(records: List[Dict[str, Any]], columns: List[str]) -> str:
+    """Convert a list of record dicts to a UTF-8 CSV string."""
+    if not records or not columns:
+        return ""
     stream = io.StringIO()
-    writer = csv.writer(stream)
-    writer.writerow(["section", "index", "text", "extra"])
-
-    for index, heading in enumerate(data.get("headings", []), start=1):
-        writer.writerow(["headings", index, heading, ""])
-
-    for index, paragraph in enumerate(data.get("paragraphs", []), start=1):
-        writer.writerow(["paragraphs", index, paragraph, ""])
-
-    for index, link in enumerate(data.get("links", []), start=1):
-        writer.writerow(["links", index, link.get("text", ""), link.get("href", "")])
-
-    for table_index, table in enumerate(data.get("tables", []), start=1):
-        headers = " | ".join(table.get("headers", []))
-        writer.writerow(["tables", table_index, "headers", headers])
-        for row_index, row in enumerate(table.get("rows", []), start=1):
-            writer.writerow(["tables", f"{table_index}.{row_index}", "row", " | ".join(row)])
-
-    for index, node in enumerate(data.get("targeted", []), start=1):
-        attrs = json.dumps(node.get("attributes", {}), ensure_ascii=True)
-        writer.writerow(["targeted", index, node.get("text", ""), attrs])
-
+    writer = csv.DictWriter(
+        stream,
+        fieldnames=columns,
+        extrasaction="ignore",
+        lineterminator="\n",
+    )
+    writer.writeheader()
+    writer.writerows(records)
     return stream.getvalue()
 
 
-def to_execution_payload(data: dict) -> dict:
-    return {"json": data, "csv": to_csv(data)}
+def records_to_json_str(
+    records: List[Dict[str, Any]],
+    metadata: Dict[str, Any],
+) -> str:
+    """Convert records to a JSON string with a metadata envelope."""
+    return json.dumps(
+        {"metadata": metadata, "data": records},
+        indent=2,
+        ensure_ascii=False,
+        default=str,
+    )
+
+
+def to_execution_payload(
+    records: List[Dict[str, Any]],
+    columns: List[str],
+    metadata: Dict[str, Any],
+) -> Dict[str, str]:
+    """Generate both CSV and JSON export strings from normalized records."""
+    return {
+        "csv": records_to_csv(records, columns),
+        "json": records_to_json_str(records, metadata),
+    }

@@ -29,6 +29,9 @@ _CORS_ORIGINS = [
     "http://192.168.137.206:3000",
    
 ]
+origins = [
+    "https://scrapi-two.vercel.app",
+]
 
 app.add_middleware(
     CORSMiddleware,

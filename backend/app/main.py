@@ -27,12 +27,12 @@ _CORS_ORIGINS = [
     "http://172.16.0.2:3000",
     "http://192.168.189.1:3000",
     "http://192.168.137.206:3000",
-    
+    *settings.CORS_ORIGINS,
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=list(dict.fromkeys(_CORS_ORIGINS)),  # deduplicated
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

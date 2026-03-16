@@ -16,10 +16,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.lock = asyncio.Lock()
 
     async def dispatch(self, request: Request, call_next):
-        # Always let CORS preflight requests through so CORS headers are added
-        if request.method == "OPTIONS":
-            return await call_next(request)
-
         if request.url.path in {"/docs", "/redoc", "/openapi.json"}:
             return await call_next(request)
 

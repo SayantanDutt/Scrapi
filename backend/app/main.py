@@ -34,11 +34,7 @@ origins = [
     "https://scrapi-two.vercel.app",
 ]
 
-app.add_middleware(
-    RateLimitMiddleware,
-    max_requests=settings.RATE_LIMIT_REQUESTS,
-    window_seconds=settings.RATE_LIMIT_WINDOW_SECONDS,
-)
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -50,6 +46,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.add_middleware(
+    RateLimitMiddleware,
+    max_requests=settings.RATE_LIMIT_REQUESTS,
+    window_seconds=settings.RATE_LIMIT_WINDOW_SECONDS,
+)
 
 
 

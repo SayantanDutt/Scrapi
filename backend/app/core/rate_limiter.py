@@ -19,6 +19,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if request.url.path in {"/docs", "/redoc", "/openapi.json"}:
             return await call_next(request)
 
+        if request.method == "OPTIONS":
+            return await call_next(request)
+        
         now = time.time()
         client_ip = request.client.host if request.client else "unknown"
         key = f"{client_ip}:{request.url.path}"

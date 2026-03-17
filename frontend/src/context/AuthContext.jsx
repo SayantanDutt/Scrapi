@@ -2,6 +2,8 @@ import { createContext, useContext, useMemo, useState } from "react";
 
 import axiosClient, { getApiErrorMessage } from "../api/axiosClient";
 
+print("CORS CONFIG LOADED")
+
 const TOKEN_KEY = "scraper_auth_token";
 const USER_KEY = "scraper_auth_user";
 

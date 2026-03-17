@@ -40,7 +40,11 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=[
+        "https://scrapi-two.vercel.app",  # your Vercel frontend
+        "http://localhost:3000",           # for local dev
+        "http://localhost:5173",           # if using Vite
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -51,7 +55,13 @@ app.add_middleware(
     max_requests=settings.RATE_LIMIT_REQUESTS,
     window_seconds=settings.RATE_LIMIT_WINDOW_SECONDS,
 )
+app.include_router(auth.router, prefix="/api/v1/auth")
+app.include_router(scrape.router, prefix="/api/v1/scrape")
+app.include_router(health.router, prefix="/api/v1/health")
 
+app.include_router(health.router)
+app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
+app.include_router(scrape.router, prefix=settings.API_V1_PREFIX)
 
 
 @app.on_event("startup")
@@ -82,13 +92,7 @@ async def on_shutdown() -> None:
 
 register_exception_handlers(app)
 
-app.include_router(auth.router, prefix="/api/v1/auth")
-app.include_router(scrape.router, prefix="/api/v1/scrape")
-app.include_router(health.router, prefix="/api/v1/health")
 
-app.include_router(health.router)
-app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
-app.include_router(scrape.router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/")

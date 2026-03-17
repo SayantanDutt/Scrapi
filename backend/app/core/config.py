@@ -1,6 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
-
+import os
 from dotenv import load_dotenv
 from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -8,7 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 BASE_DIR = Path(__file__).resolve().parents[2]
 load_dotenv(BASE_DIR / ".env")
 
-
+origins = os.getenv("ALLOWED_ORIGINS", "https://scrapi-two.vercel.app").split(",")
 class Settings(BaseSettings):
     APP_NAME: str = "Automated Web Scraper API"
     API_V1_PREFIX: str = "/api/v1"

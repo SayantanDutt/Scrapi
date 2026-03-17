@@ -1,5 +1,4 @@
 import logging
-import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -19,31 +18,14 @@ settings = get_settings()
 
 app = FastAPI(title=settings.APP_NAME, debug=settings.DEBUG)
 
-_CORS_ORIGINS = [
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "http://localhost:4173",
-    "https://scrapi-two.vercel.app",
-    "http://172.16.0.2:3000",
-    "http://192.168.189.1:3000",
-    "http://192.168.137.206:3000",
-    *settings.CORS_ORIGINS
-   
-]
-origins = [
-    "https://scrapi-two.vercel.app",
-    "http://localhost:3000",
-   
-]
-
-
-
+# ✅ CORS first, before everything else
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://scrapi-two.vercel.app",  # your Vercel frontend
-        "http://localhost:3000",           # for local dev
-        "http://localhost:5173",           # if using Vite
+        "https://scrapi-two.vercel.app",
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:4173",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -55,34 +37,21 @@ app.add_middleware(
     max_requests=settings.RATE_LIMIT_REQUESTS,
     window_seconds=settings.RATE_LIMIT_WINDOW_SECONDS,
 )
+
+# ✅ Routers registered ONCE only
 app.include_router(auth.router, prefix="/api/v1/auth")
 app.include_router(scrape.router, prefix="/api/v1/scrape")
 app.include_router(health.router, prefix="/api/v1/health")
-
-app.include_router(health.router)
-app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
-app.include_router(scrape.router, prefix=settings.API_V1_PREFIX)
 
 
 @app.on_event("startup")
 async def on_startup() -> None:
     connected = await connect_to_mongo()
     if connected and await verify_mongo_connection():
-        logger.info(
-            "MongoDB connectivity verified at %s (db: %s).",
-            settings.MONGO_URI,
-            settings.MONGO_DB_NAME,
-        )
+        logger.info("MongoDB connectivity verified.")
         return
-
     error_detail = get_last_mongo_error() or "No additional error details available."
-    logger.error(
-        "MongoDB connectivity check failed at startup for %s (db: %s). "
-        "API running in degraded mode. Error: %s",
-        settings.MONGO_URI,
-        settings.MONGO_DB_NAME,
-        error_detail,
-    )
+    logger.error("MongoDB connectivity check failed: %s", error_detail)
 
 
 @app.on_event("shutdown")
@@ -91,8 +60,6 @@ async def on_shutdown() -> None:
 
 
 register_exception_handlers(app)
-
-
 
 
 @app.get("/")

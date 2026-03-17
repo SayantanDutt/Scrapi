@@ -37,7 +37,7 @@ export function AuthProvider({ children }) {
 
   const register = async (formData) => {
     try {
-      const response = await axiosClient.post("/auth/register", formData);
+      const response = await axiosClient.post("/api/v1/auth/register", formData);
       persistAuth(response.data);
       return response.data;
     } catch (error) {
@@ -47,7 +47,7 @@ export function AuthProvider({ children }) {
 
   const login = async (formData) => {
     try {
-      const response = await axiosClient.post("/auth/login", formData);
+      const response = await axiosClient.post("/api/v1/auth/login", formData);
       persistAuth(response.data);
       return response.data;
     } catch (error) {

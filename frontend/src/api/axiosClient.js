@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "https://scrapi-ojbs.onrender.com";
+  import.meta.env.VITE_API_BASE_URL || "https://scrapi-ojbs.onrender.com/api/v1";
 
 const axiosClient = axios.create({
   baseURL:  API_BASE_URL,

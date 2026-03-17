@@ -39,10 +39,9 @@ app.add_middleware(
 )
 
 # ✅ Routers registered ONCE only
-app.include_router(auth.router, prefix="/api/v1/auth")
-app.include_router(scrape.router, prefix="/api/v1/scrape")
-app.include_router(health.router, prefix="/api/v1/health")
-
+app.include_router(auth.router, prefix="/api/v1")
+app.include_router(scrape.router, prefix="/api/v1")
+app.include_router(health.router, prefix="/api/v1")
 
 @app.on_event("startup")
 async def on_startup() -> None:

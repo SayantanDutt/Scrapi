@@ -1,5 +1,5 @@
 import logging
-
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -32,15 +32,15 @@ _CORS_ORIGINS = [
 ]
 origins = [
     "https://scrapi-two.vercel.app",
+    "http://localhost:3000",
+   
 ]
 
 
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://scrapi-two.vercel.app"
-    ],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -81,6 +81,10 @@ async def on_shutdown() -> None:
 
 
 register_exception_handlers(app)
+
+app.include_router(auth.router, prefix="/api/v1/auth")
+app.include_router(scrape.router, prefix="/api/v1/scrape")
+app.include_router(health.router, prefix="/api/v1/health")
 
 app.include_router(health.router)
 app.include_router(auth.router, prefix=settings.API_V1_PREFIX)

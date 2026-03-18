@@ -68,3 +68,7 @@ async def root():
         "docs": "/docs",
         "version": "2.0.0",
     }
+
+@app.get("/health")
+def health():
+    return {"status": "OK"}

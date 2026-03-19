@@ -31,10 +31,17 @@ export default function LoginPage() {
       const redirectTo = location.state?.from?.pathname || "/dashboard";
       navigate(redirectTo, { replace: true });
     } catch (err) {
-      const msg = err.message || "Login failed. Please try again.";
-      setError(msg);
-      toastError(msg);
-    } finally {
+  const isNetworkError =
+    err.message === "Network Error" ||
+    err.code === "ERR_NETWORK";
+
+  const msg = isNetworkError
+    ? "Server is waking up... please wait 1–2 minutes and try again"
+    : err.response?.data?.message || "Login failed. Please try again.";
+
+  setError(msg);
+  toastError(msg);
+} finally {
       setLoading(false);
     }
   };
